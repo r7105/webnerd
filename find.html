@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Top-Down Shooter | WebNerd</title>
+  <title>In Depth | WebNerd.pages.dev | WebGames for gamers</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     #fullscreenButton {
@@ -19,6 +19,56 @@
       border-radius: 5px;
       z-index: 1000;
     }
+
+    /* Style the game over overlay */
+    #gameOverOverlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 1001; /* Ensure it's on top of everything */
+    }
+
+    #gameOverOverlay h1 {
+      margin-top: 0;
+    }
+
+    #gameOverOverlay button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    /* Style the shop overlay */
+    #shopOverlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 1002; /* Ensure it's on top of everything */
+      display: none; /* Hidden by default */
+    }
+
+    #shopOverlay h1 {
+      margin-top: 0;
+    }
+
+    #shopOverlay button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 5px;
+    }
   </style>
 </head>
 <body>
@@ -29,28 +79,55 @@
     <p>Your Score: <span id="finalScore">0</span></p>
     <button id="retryButton">Retry</button>
   </div>
+
+  <!-- Shop Overlay -->
+  <div id="shopOverlay">
+    <h1>Shop</h1>
+    <p>Coins: <span id="coinCount">0</span></p>
+    <button onclick="purchaseItem('healthPotion')">Health Potion - 10 Coins</button>
+    <button onclick="purchaseItem('speedBoost')">Speed Boost - 20 Coins</button>
+    <button onclick="closeShop()">Close</button>
+  </div>
+
   <button id="fullscreenButton">Go Fullscreen</button>
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+
+    // Function to enter fullscreen
+    function enterFullscreen() {
+      if (canvas.requestFullscreen) {
+        canvas.requestFullscreen().then(() => {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        }).catch(err => {
+          console.error(`Error attempting to enable fullscreen mode: ${err.message}`);
+        });
+      }
+    }
     
     // Game variables
+    let startTime = Date.now(); // Record the start time
+    let elapsedTime = 0;
     let player = { 
       x: 400, 
       y: 300, 
       width: 20, 
       height: 20, 
-      speed: 5, 
+      speed: 5,
+      fireRate: 10, // Initialize fireRate
       health: 100 // Add health property
     };
     let keys = {};
     let score = 0;
     let animationFrameId; // Variable to store the animation frame ID
+    let coins = 0; // Initialize coins
+    let coinsOnGround = []; // Array to store coins on the ground
     
     // Enemy variables
     let enemies = [
-      { x: 100, y: 100, width: 20, height: 20, speed: 2, patrol: [{ x: 100, y: 100 }, { x: 300, y: 100 }], patrolIndex: 0 },
-      { x: 700, y: 200, width: 20, height: 20, speed: 3, patrol: [{ x: 700, y: 200 }, { x: 500, y: 400 }], patrolIndex: 0 },
+      { x: 100, y: 100, width: 20, height: 20, speed: 2, health: 50, patrol: [{ x: 100, y: 100 }, { x: 300, y: 100 }], patrolIndex: 0 },
+      { x: 700, y: 200, width: 20, height: 20, speed: 3, health: 75, patrol: [{ x: 700, y: 200 }, { x: 500, y: 400 }], patrolIndex: 0 },
     ];
     
     // Bullet variables
@@ -63,6 +140,44 @@
     let powerUps = [];
     let activePowerUp = null;
     let powerUpTimer = 0;
+
+    // Gun Types
+    const gunTypes = {
+      pistol: {
+        fireRate: 200, // Milliseconds between shots
+        bulletSpeed: 15,
+        bulletDamage: 10,
+      },
+      shotgun: {
+        fireRate: 500,
+        bulletSpeed: 12,
+        bulletDamage: 5, // Lower damage per pellet
+        pellets: 8, // Number of pellets per shot
+        spread: 0.2, // Angle spread in radians
+      },
+      machineGun: {
+        fireRate: 100,
+        bulletSpeed: 20,
+        bulletDamage: 5,
+      },
+    };
+
+    let currentGun = 'pistol'; // Default gun
+    let lastFireTime = 0; // Last time a bullet was fired
+    let shopOpen = false; // Track if the shop is open
+
+    // Event listeners for switching guns
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '1') {
+        currentGun = 'pistol';
+      } else if (e.key === '2') {
+        currentGun = 'shotgun';
+      } else if (e.key === '3') {
+        currentGun = 'machineGun';
+      } else if (e.key === 'e') { // Open/close shop with "E" key
+        toggleShop();
+      }
+    });
     
     // Event listeners for movement
     document.addEventListener('keydown', (e) => (keys[e.key] = true));
@@ -80,43 +195,83 @@
       const rect = canvas.getBoundingClientRect();
       mouse.x = Math.min(mouse.x, rect.width); // Ensure mouse position stays within bounds
       mouse.y = Math.min(mouse.y, rect.height);
+
+      // Adjust overlay size and position on fullscreen change
+      const overlay = document.getElementById('gameOverOverlay');
+      if (document.fullscreenElement) {
+        overlay.style.width = '80%'; // Adjust as needed
+        overlay.style.height = '50%'; // Adjust as needed
+        overlay.style.fontSize = '2em'; // Adjust as needed
+      } else {
+        overlay.style.width = ''; // Reset to default
+        overlay.style.height = ''; // Reset to default
+        overlay.style.fontSize = ''; // Reset to default
+      }
     });
     
     // Shoot bullets
     document.addEventListener('keydown', (e) => {
       if (e.key === ' ') {
-        bullets.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10, speed: 7 });
+        shootBullet();
       }
     });
     
     // Fire bullets on left click
     canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) { // Left mouse button
-        const angle = Math.atan2(
-          mouse.y - (player.y + player.height / 2),
-          mouse.x - (player.x + player.width / 2)
-        );
-        bullets.push({
-          x: player.x + player.width / 2,
-          y: player.y + player.height / 2,
-          angle: angle,
-          speed: 15,
-          source: 'player', // Mark as a player bullet
-        });
+        shootBullet();
       }
     });
+
+    function shootBullet() {
+      const now = Date.now();
+      const gun = gunTypes[currentGun];
+
+      if (now - lastFireTime > gun.fireRate) {
+        lastFireTime = now;
+
+        if (currentGun === 'shotgun') {
+          // Shotgun: Multiple pellets with spread
+          for (let i = 0; i < gun.pellets; i++) {
+            const angle = Math.atan2(
+              mouse.y - (player.y + player.height / 2),
+              mouse.x - (player.x + player.width / 2)
+            ) + (Math.random() - 0.5) * gun.spread; // Add random spread
+
+            bullets.push({
+              x: player.x + player.width / 2,
+              y: player.y + player.height / 2,
+              angle: angle,
+              speed: gun.bulletSpeed,
+              damage: gun.bulletDamage,
+              source: 'player',
+            });
+          }
+        } else {
+          // Pistol and Machine Gun: Single bullet
+          const angle = Math.atan2(
+            mouse.y - (player.y + player.height / 2),
+            mouse.x - (player.x + player.width / 2)
+          );
+
+          bullets.push({
+            x: player.x + player.width / 2,
+            y: player.y + player.height / 2,
+            angle: angle,
+            speed: gun.bulletSpeed,
+            damage: gun.bulletDamage,
+            source: 'player',
+          });
+        }
+      }
+    }
 
     // Fullscreen button logic
     const fullscreenButton = document.getElementById('fullscreenButton');
 
     fullscreenButton.addEventListener('click', () => {
       if (!document.fullscreenElement) {
-        canvas.requestFullscreen().then(() => {
-          canvas.width = window.innerWidth; // Resize canvas to fullscreen width
-          canvas.height = window.innerHeight; // Resize canvas to fullscreen height
-        }).catch((err) => {
-          console.error(`Error attempting to enable fullscreen mode: ${err.message}`);
-        });
+        enterFullscreen();
       } else {
         document.exitFullscreen().then(() => {
           canvas.width = 800; // Reset canvas to original size
@@ -124,16 +279,85 @@
         });
       }
     });
+
+    function toggleShop() {
+      shopOpen = !shopOpen;
+      const shopOverlay = document.getElementById('shopOverlay');
+      shopOverlay.style.display = shopOpen ? 'block' : 'none';
+    }
+
+    function closeShop() {
+      shopOpen = false;
+      const shopOverlay = document.getElementById('shopOverlay');
+      shopOverlay.style.display = 'none';
+    }
+
+    function purchaseItem(item) {
+      if (item === 'healthPotion' && coins >= 10) {
+        coins -= 10;
+        player.health = 100; // Restore health
+        updateCoinCount();
+      } else if (item === 'speedBoost' && coins >= 20) {
+        coins -= 20;
+        player.speed = 10; // Increase speed
+        updateCoinCount();
+        setTimeout(() => {
+          player.speed = 5; // Revert speed after 5 seconds
+        }, 5000);
+      } else {
+        alert('Not enough coins or invalid item!');
+      }
+    }
+
+    function updateCoinCount() {
+      document.getElementById('coinCount').textContent = coins;
+    }
+
+    function dropCoin(x, y) {
+      coinsOnGround.push({
+        x: x,
+        y: y,
+        width: 10,
+        height: 10,
+      });
+    }
+
+    function drawCoins() {
+      coinsOnGround.forEach((coin) => {
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(coin.x, coin.y, coin.width, coin.height);
+      });
+    }
+
+    function checkCoinCollection() {
+      coinsOnGround.forEach((coin, index) => {
+        if (
+          player.x < coin.x + coin.width &&
+          player.x + player.width > coin.x &&
+          player.y < coin.y + coin.height &&
+          player.y + player.height > coin.y
+        ) {
+          coins++;
+          coinsOnGround.splice(index, 1);
+          updateCoinCount();
+        }
+      });
+    }
     
     // Game loop
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     
       // Player movement
-      if (keys['ArrowUp']) player.y -= player.speed;
-      if (keys['ArrowDown']) player.y += player.speed;
-      if (keys['ArrowLeft']) player.x -= player.speed;
-      if (keys['ArrowRight']) player.x += player.speed;
+
+      if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+      if (keys['ArrowDown'] && player.y < canvas.height - player.height) player.y += player.speed;
+      if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+      if (keys['ArrowRight'] && player.x < canvas.width - player.width) player.x += player.speed;
+      if (keys['w'] && player.y > 0) player.y -= player.speed;
+      if (keys['s'] && player.y < canvas.height - player.height) player.y += player.speed;
+      if (keys['a'] && player.x > 0) player.x -= player.speed;
+      if (keys['d'] && player.x < canvas.width - player.width) player.x += player.speed;
     
       // Draw player as a circle
       ctx.fillStyle = 'blue';
@@ -152,9 +376,15 @@
     
       // Check for collisions
       checkCollisions();
+
+      // Check for coin collection
+      checkCoinCollection();
     
       // Update score
       updateScore();
+
+      // Draw coins on the ground
+      drawCoins();
 
       // Draw power-ups
       drawPowerUps();
@@ -178,6 +408,7 @@
     }
     
     // Update and draw enemies
+// Update and draw enemies
     function updateEnemies() {
       enemies.forEach((enemy) => {
         const dx = player.x - enemy.x;
@@ -228,7 +459,7 @@
         // Draw enemy health bar
         const healthBarWidth = 20;
         const healthBarHeight = 4;
-        const healthPercentage = enemy.health / 100; // Assuming max health is 100
+        const healthPercentage = enemy.health / 50; // Assuming max health is 100
         ctx.fillStyle = 'gray';
         ctx.fillRect(enemy.x, enemy.y - 10, healthBarWidth, healthBarHeight); // Background
         ctx.fillStyle = 'green';
@@ -278,7 +509,7 @@
               bullet.y < enemy.y + enemy.height &&
               bullet.y > enemy.y
             ) {
-              damageEnemy(bulletIndex, enemyIndex);
+              damageEnemy(bulletIndex, enemyIndex, bullet.damage); // Pass bullet damage
             }
           });
         }
@@ -296,6 +527,7 @@
             player.health -= 10; // Reduce player's health by 10
             if (player.health <= 0) {
               endGame(); // End the game if health reaches 0
+              return; // Stop further collision checks after game over
             }
           }
 
@@ -317,7 +549,8 @@
           player.health -= 10; // Reduce health by 10
           bullets.splice(bulletIndex, 1); // Remove the bullet
           if (player.health <= 0) {
-            endGame(); // End the game if health reaches 0
+            endGame(); // Call endGame() here
+            return; // Stop further collision checks after game over
           }
         }
       });
@@ -327,6 +560,28 @@
       ctx.fillStyle = 'white';
       ctx.font = '20px Arial';
       ctx.fillText(`Score: ${score}`, 10, 20);
+    }
+
+    function drawCoins() {
+      coinsOnGround.forEach((coin) => {
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(coin.x, coin.y, coin.width, coin.height);
+      });
+    }
+
+    function checkCoinCollection() {
+      coinsOnGround.forEach((coin, index) => {
+        if (
+          player.x < coin.x + coin.width &&
+          player.x + player.width > coin.x &&
+          player.y < coin.y + coin.height &&
+          player.y + player.height > coin.y
+        ) {
+          coins++;
+          coinsOnGround.splice(index, 1);
+          updateCoinCount();
+        }
+      });
     }
     
     function drawAimingLine() {
@@ -349,14 +604,40 @@
       ctx.stroke();
     }
 
-    function drawPowerUps() {
-      powerUps.forEach((powerUp) => {
-        ctx.fillStyle = powerUp.type === 'speed' ? 'green' :
-                        powerUp.type === 'rapidFire' ? 'orange' : 'purple';
-        ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
-      });
-    }
+                  function drawPowerUps() {
+                    powerUps.forEach((powerUp) => {
+                      // Use a switch statement for easier addition of power-up types
+                      let color;
+                      switch (powerUp.type) {
+                        case 'speed':
+                          color = 'green';
+                          break;
+                        case 'rapidFire':
+                          color = 'orange';
+                          break;
+                        case 'invincibility':
+                          color = 'purple';
+                          break;
+                        case 'healing':  // Example: if you added a healing power-up
+                          color = 'pink';
+                          break;
+                        default:
+                          color = 'white'; // Default color if type is unknown
+                      }
 
+                      ctx.fillStyle = color;
+                      ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+
+                      // Optional: Add a visual indicator of the power-up type (e.g., text or an icon)
+                      ctx.fillStyle = 'black';
+                      ctx.font = '10px Arial';
+                      ctx.textAlign = 'center';
+                      ctx.textBaseline = 'middle';
+                      ctx.fillText(powerUp.type.charAt(0).toUpperCase(), powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2);
+
+
+                    });
+                  }
     function checkPowerUpCollection() {
       powerUps.forEach((powerUp, index) => {
         if (
@@ -381,15 +662,16 @@
         player.fireRate = 5; // Faster shooting
       } else if (type === 'invincibility') {
         player.invincible = true; // Make the player invincible
+      } else if (type === 'healing') {
+        player.health = 100; // Fully heal the player
       }
     }
-
     // Reset power-up effects after the timer ends
     function updatePowerUpTimer() {
       if (powerUpTimer > 0) {
         powerUpTimer--;
         if (powerUpTimer === 0) {
-          deactivatePowerUp();
+          deactivatePowerUp(); // Call deactivatePowerUp() when the timer ends
         }
       }
     }
@@ -401,6 +683,8 @@
         player.fireRate = 10; // Reset fire rate
       } else if (activePowerUp === 'invincibility') {
         player.invincible = false; // Remove invincibility
+      } else if (activePowerUp === 'healing') {
+        // player.health = 100; // Reset health - not needed, healing is instant
       }
       activePowerUp = null;
     }
@@ -426,7 +710,7 @@
       ctx.strokeRect(x, y, barWidth, barHeight);
     }
 
-    function damageEnemy(bulletIndex, enemyIndex) {
+    function damageEnemy(bulletIndex, enemyIndex, damage = 10) {
       const enemy = enemies[enemyIndex];
 
       // If a bullet is involved, remove it
@@ -434,13 +718,18 @@
         bullets.splice(bulletIndex, 1);
       }
 
-      // Reduce enemy health based on bullet damage (default: 10)
-      enemy.health -= 10;
+      // Reduce enemy health based on bullet damage
+      enemy.health -= damage;
 
       // Check if the enemy's health is depleted
       if (enemy.health <= 0) {
         enemies.splice(enemyIndex, 1); // Remove the enemy
         score += 10; // Increase the score
+
+        // Drop coins with a 50% chance
+        if (Math.random() < 0.5) {
+          dropCoin(enemy.x, enemy.y);
+        }
       }
     }
 
@@ -467,11 +756,13 @@
       const retryButton = document.getElementById('retryButton');
       retryButton.onclick = () => {
         // Reset game variables
-        player = { x: 400, y: 300, width: 20, height: 20, speed: 5, health: 100 }; // Reset health
+        player = { x: 400, y: 300, width: 20, height: 20, speed: 5, fireRate: 10, health: 100 }; // Reset health
         bullets = [];
         enemies = [];
         powerUps = [];
         score = 0;
+        coins = 0; // Reset coins
+        coinsOnGround = []; // Reset coins on ground
 
         // Hide the overlay
         overlay.classList.add('hidden');
@@ -494,7 +785,7 @@
           patrol: [
             { x: Math.random() * canvas.width, y: Math.random() * canvas.height },
             { x: Math.random() * canvas.width, y: Math.random() * canvas.height },
-          ],
+            ],
           patrolIndex: 0,
         },
         {
@@ -525,12 +816,21 @@
       });
     }
 
-    // Call this function periodically (e.g., every 10 seconds)
+    //
+// Call this function periodically (e.g., every 10 seconds)
     setInterval(spawnPowerUp, 10000);
+
+    // Automatically enter fullscreen on page load
+    window.onload = function() {
+      enterFullscreen();
+    };
     
     // Start the game
     spawnEnemies();
     gameLoop();
+
+    // Initial coin count update
+    updateCoinCount();
   </script>
 </body>
 </html>
