@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WebNerd Stocks — Mini Stock Market Game</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      :root{
+        --bg:#0b1220; --card:#0f1724; --muted:#9fb0c8; --accent:#38bdf8; --glass: rgba(255,255,255,0.04);
+        --radius:12px; --gap:16px; --glass-border: rgba(255,255,255,0.04);
+      }
+      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Noto Sans',sans-serif;background:var(--bg);color:#e6f0fb}
+      /* dotted grid background */
+      body{
+        /* background blur & darken overlay */
+        body::before{ content:''; position:fixed; inset:0; pointer-events:none; backdrop-filter: blur(4px); background: rgba(2,6,12,0.18); z-index:0 }
+        
+        background-image:
+          radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 1px),
+          radial-gradient(circle at 11px 11px, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 22px 22px, 22px 22px;
+        -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      }
+      .app { max-width:1100px; margin:34px auto; padding:20px; }
+      header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+      .hamb { background:var(--glass); border:1px solid var(--glass-border); padding:8px; border-radius:8px; cursor:pointer }
+      h1{margin:0;font-size:20px}
+  .grid { display:grid; grid-template-columns: 320px 1fr; gap:18px; align-items:start }
+      .card { background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent); padding:14px; border-radius:var(--radius); border:1px solid var(--glass-border); box-shadow: 0 6px 18px rgba(2,6,23,0.6) }
+      .market-list{display:flex;flex-direction:column;gap:10px}
+      .stock-row{display:flex;justify-content:space-between;align-items:center;padding:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+      .stock-row strong{font-size:15px}
+      .stock-actions button{margin-left:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--accent);padding:6px 8px;border-radius:8px;cursor:pointer}
+    .stock-row{display:flex;justify-content:space-between;align-items:center;padding:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);border-radius:10px;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
+    .stock-row strong{font-size:15px}
+    .stock-actions button{margin-left:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--accent);padding:6px 8px;border-radius:8px;cursor:pointer}
+
+    /* improved button styles */
+    button{background:linear-gradient(180deg,var(--accent), #2bb8ef);border:none;color:#042033;padding:8px 10px;border-radius:10px;cursor:pointer;box-shadow:0 6px 14px rgba(3,18,30,0.4);transition:transform .08s ease,box-shadow .08s ease}
+    button:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(3,18,30,0.45)}
+    button:active{transform:translateY(0);box-shadow:0 6px 14px rgba(3,18,30,0.35)}
+      .controls{display:flex;gap:8px;margin-top:10px}
+      .log{max-height:220px;overflow:auto;padding:8px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);}
+      table.portfolio{width:100%;border-collapse:collapse}
+      table.portfolio th,table.portfolio td{padding:8px;border-bottom:1px dashed rgba(255,255,255,0.03);text-align:left}
+      .muted{color:var(--muted);font-size:13px}
+      .controls button{background:var(--accent);border:none;color:#042033;padding:8px 10px;border-radius:8px;cursor:pointer}
+      input[type=number],input[type=text],select{background:transparent;border:1px solid rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px;color:inherit}
+      aside{position:relative}
+      @media(max-width:980px){.grid{grid-template-columns:1fr}aside{order:2}}
+
+      /* main menu modal */
+      #mainMenu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(2,6,23,0.6), rgba(2,6,23,0.6));backdrop-filter: blur(3px);}
+      #mainMenu .menu{width:520px;padding:20px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border:1px solid rgba(255,255,255,0.04)}
+      .slots{display:flex;gap:8px;margin-top:12px}
+      .slot{flex:1;padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03)}
+      .slot button{margin-top:8px;width:100%}
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="hamb" id="openMenu" title="Menu">
+          ☰
+        </div>
+        <h1>WebNerd Stocks — Mini Market</h1>
+        <div style="margin-left:auto" class="muted">Cash: $<span id="cash">0</span> • Net: $<span id="networth">0</span></div>
+      </header>
+
+      <div class="grid">
+        <div>
+          <div class="card">
+            <h2 class="muted">Portfolio</h2>
+            <table class="portfolio" id="portfolio">
+              <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>Value</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div style="margin-top:8px" class="muted">Cash: $<span id="cash-aside">0</span></div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h2 class="muted">Controls</h2>
+            <div style="display:flex;gap:8px;align-items:center">
+              <label style="display:flex;flex-direction:column">Symbol <select id="symSelect"></select></label>
+              <label style="display:flex;flex-direction:column">Qty <input id="qty" type="number" value="1" min="1" style="width:80px"/></label>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <button id="buy">Buy</button>
+              <button id="sell">Sell</button>
+              <button id="shopBtn">Shop</button>
+              <button id="reset">Reset Game</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h2 class="muted">News & Log</h2>
+            <div id="log" class="log"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h2 class="muted">Market</h2>
+            <div id="market" class="market-list"></div>
+            <div class="controls">
+              <button id="tick" title="Advance time">Tick ⏱️</button>
+              <button id="autoToggle">Start Auto</button>
+              <label class="muted" style="margin-left:auto">Speed:
+                <select id="speed">
+                  <option value="1000">1x</option>
+                  <option value="500">2x</option>
+                  <option value="200">5x</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h2 class="muted">Market Chart (All Stocks)</h2>
+            <canvas id="multiChart" width="960" height="220" style="width:100%;height:180px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);"></canvas>
+            <div id="multiHover" class="muted" style="margin-top:8px">Hover over lines to see values.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main menu / save slots modal -->
+    <div id="mainMenu" aria-hidden="false">
+      <div class="menu">
+        <h2>WebNerd Stocks</h2>
+        <p class="muted">Choose an action or manage save slots. Data is stored in cookies (3 slots).</p>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="newGame">New Game</button>
+          <button id="continueBtn">Continue</button>
+          <button id="closeMenu">Close</button>
+        </div>
+
+        <div style="margin-top:14px">
+          <div class="muted">Save Slots</div>
+          <div class="slots" id="slotsContainer">
+            <!-- slots rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="stock.js"></script>
+  </body>
+</html>
