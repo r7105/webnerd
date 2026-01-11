@@ -1,0 +1,226 @@
+.page {
+  --bg: #0b1220;
+  --card: #0f1724;
+  --muted: #9fb0c8;
+  --accent: #38bdf8;
+  --glass: rgba(255, 255, 255, 0.04);
+  --radius: 12px;
+  --gap: 16px;
+  --glass-border: rgba(255, 255, 255, 0.04);
+  position: relative;
+  min-height: 100vh;
+  background: var(--bg);
+  color: #e6f0fb;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+.page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  background: rgba(2, 6, 12, 0.18);
+  z-index: 0;
+}
+
+.page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    radial-gradient(circle at 11px 11px, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 22px 22px, 22px 22px;
+  z-index: 0;
+}
+
+.app {
+  max-width: 1100px;
+  margin: 34px auto;
+  padding: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.hamb {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.net {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
+}
+
+.marketList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.page :global(.stock-row) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+}
+
+.page :global(.stock-row strong) {
+  font-size: 15px;
+}
+
+.page :global(.stock-actions button) {
+  margin-left: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--accent);
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.log {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
+}
+
+.portfolio {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.portfolio th,
+.portfolio td {
+  padding: 8px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page button {
+  background: linear-gradient(180deg, var(--accent), #2bb8ef);
+  border: none;
+  color: #042033;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(3, 18, 30, 0.4);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.page button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(3, 18, 30, 0.45);
+}
+
+.page button:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(3, 18, 30, 0.35);
+}
+
+.page input[type="number"],
+.page input[type="text"],
+.page select {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: inherit;
+}
+
+@media (max-width: 980px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mainMenu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.6), rgba(2, 6, 23, 0.6));
+  backdrop-filter: blur(3px);
+  z-index: 2;
+}
+
+.menu {
+  width: 520px;
+  padding: 20px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.slots {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.page :global(.slot) {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.page :global(.tab.active) {
+  box-shadow: inset 0 0 0 2px rgba(4, 32, 51, 0.6);
+}
