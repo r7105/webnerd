@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String                @id @default(cuid())
+  username        String                @unique
+  passwordHash    String
+  currencyBalance Int                   @default(0)
+  createdAt       DateTime              @default(now())
+  achievements    UserAchievement[]
+  gameStats       UserGameStat[]
+  gameStates      UserGameState[]
+  transactions    CurrencyTransaction[]
+  sentInvites     ChitterInvite[]
+  friendshipsA    Friend[]              @relation("FriendRequester")
+  friendshipsB    Friend[]              @relation("FriendAddressee")
+}
+
+model Game {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  title       String
+  description String
+  coverUrl    String?
+  createdAt   DateTime         @default(now())
+  achievements Achievement[]
+  stats        UserGameStat[]
+}
+
+model Achievement {
+  id          String           @id @default(cuid())
+  gameId      String
+  key         String
+  title       String
+  description String
+  points      Int              @default(10)
+  createdAt   DateTime         @default(now())
+  game        Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  users       UserAchievement[]
+
+  @@unique([gameId, key])
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+model UserGameStat {
+  id              String   @id @default(cuid())
+  userId          String
+  gameId          String
+  playtimeSeconds Int      @default(0)
+  lastPlayedAt    DateTime?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game            Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+}
+
+model UserGameState {
+  id        String   @id @default(cuid())
+  userId    String
+  gameSlug  String
+  stateJson String
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameSlug])
+}
+
+model CurrencyTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Friend {
+  id           String   @id @default(cuid())
+  requesterId  String
+  addresseeId  String
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+  requester    User     @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee    User     @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+}
+
+model ChitterInvite {
+  id          String   @id @default(cuid())
+  fromUserId  String
+  toUsername  String
+  status      String   @default("sent")
+  createdAt   DateTime @default(now())
+  fromUser    User     @relation(fields: [fromUserId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/chitterhaven"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("CHITTERHAVEN_DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  email     String?
+  roles     String?
+  createdAt DateTime @default(now())
+}
